@@ -2,32 +2,32 @@
 
 A portable teamwork orchestration runtime, with DeepSeek Harness (DSH) as its first integration.
 
-面向多种 Harness 的独立编排核心，优先接入 DSH。公开版本为 **0.2.0-dev.1 预发布版**；当前工作树是尚未发布的 **0.3.0-dev.1**，新增有限次数修复、暂停/恢复和候选验证队列恢复。不是完整产品。
+An independent orchestration core for multiple Harnesses, with DSH as the first integration. The public release is **0.2.0-dev.1 prerelease**; the current worktree is the unreleased **0.3.0-dev.1**, which adds bounded repair rounds, pause/resume, and candidate verification queue recovery. It is not a complete product.
 
-本项目为独立实现，不是 DeepSeek 或 Google 的官方产品，也不包含其私有运行样本或内部提示词。
+This project is an independent implementation. It is not an official product of DeepSeek or Google, and it does not contain their private runtime samples or internal prompts.
 
-## 当前能力
+## Current capabilities
 
-- Host 工具：`teamwork_start`、`teamwork_status`、`teamwork_control`（取消；0.3 还支持暂停、恢复和显式需求修订）。
-- 0.3 的 `teamwork_inspect` 提供摘要校验后的产物分页读取、变更清单，以及针对当前项目的只读三方集成冲突预览。
-- 独立 Runtime：SQLite 状态、幂等命令、dispatch outbox、可补读的 SSE 事件。
-- 0.3 提供 `teamwork-runtime start` 持久后台模式：启动终端与 DSH 入口断开后继续授权工作。默认 `run` 为 attached 模式，拥有者退出后暂停；`status` / `stop` 使用独立操作者凭证和实例 ID，不靠 PID 猜测或强杀服务。
-- 每个 Attempt 使用独立工作副本、DSH SDK 进程和作用域凭证；支持超时与取消。
-- 可选验证：候选内容摘要 → 全新只读评审 → 独立验收命令 → 确定性 Gate。
-- 0.3 的 start 支持结构化需求及文件/目录变更范围；评审逐项回答需求，Runtime 检查范围并拒绝越界候选。
-- `revise` 保存旧版本证据、冻结当前项目为新基线，撤销旧 Gate 并使已停止的派生工作过期；新版本重新实现、评审和验收。
-- 可选 `budget.maxModelAttempts` 是跨实现、评审、修复、恢复、需求修订和派生任务的总额度，不是逐步审批；预留额度内自动派发，耗尽后才暂停。它不是 Token 或金额限额。
-- 未授权自动集成时不改写原项目。`verified` 表示候选通过当前验收策略，不表示已集成。
-- 0.3 可显式启用 `teamwork_integrate`：先预览并授权，再串行写回、保留备份并验收最终合并树；支持取消与有条件的“保留当前文件”处理。
-- 创建时提供 `autonomy: {"integration":"on-gate-pass"}` 与明确 spec，即可一次授权后自动完成 Gate → 预检 → 串行写回 → 最终验收，不需要第二次集成批准。再提供 `conflicts:"resolve"` 和共享总预算，可自动创建冲突修复子任务并重新评审、验收和写回。
-- `teamwork_status` / `teamwork_control` 的 `scope: "workflow"` 在根任务上汇总和控制整条派生链。使用聚合版本一次暂停、恢复或取消所有相关任务及集成派发；无需逐个操作子任务。这是可选人工控制，不是自主执行中的审批步骤。
-- 冲突可通过 `teamwork_integrate` 的 `resolve` 创建新工作项：以当前项目为基线，只读查看三方输入，重新实现、独立评审并验收；有已接受的自动写回策略时通过后自动集成，否则仍用显式集成命令。
+- Host tools: `teamwork_start`, `teamwork_status`, `teamwork_control` (cancel; 0.3 also supports pause, resume, and explicit requirement revision).
+- 0.3's `teamwork_inspect` provides digest-verified paginated artifact reads, change manifests, and a read-only three-way integration conflict preview against the current project.
+- Independent Runtime: SQLite state, idempotent commands, dispatch outbox, and replayable SSE events.
+- 0.3 provides a `teamwork-runtime start` persistent background mode: it continues authorized work after the launching terminal and DSH entry disconnect. The default `run` is attached mode and pauses when the owner exits; `status` / `stop` use independent operator credentials and an instance ID, with no PID guessing or force-killing of the service.
+- Each Attempt uses an independent working copy, DSH SDK process, and scoped credentials; timeout and cancellation are supported.
+- Optional verification: candidate content digest → fresh read-only review → independent acceptance command → deterministic Gate.
+- 0.3's start supports structured requirements and file/directory change scope; the review answers each requirement individually, and the Runtime checks scope and rejects out-of-bounds candidates.
+- `revise` preserves prior-version evidence, freezes the current project as the new baseline, revokes the old Gate, and expires stopped derived work; the new version is re-implemented, re-reviewed, and re-accepted.
+- The optional `budget.maxModelAttempts` is a total allowance across implementation, review, repair, resume, requirement revision, and derived tasks, not per-step approval; dispatch is automatic within the reserved allowance and only pauses once exhausted. It is not a token or monetary limit.
+- Without authorized automatic integration, the original project is not modified. `verified` means the candidate passed the current acceptance policy, not that it was integrated.
+- 0.3 can explicitly enable `teamwork_integrate`: preview and authorize first, then serial write-back, retain backups, and accept the final merged tree; cancellation and conditional "keep current files" handling are supported.
+- Provide `autonomy: {"integration":"on-gate-pass"}` and an explicit spec at creation to authorize once and automatically complete Gate → preflight → serial write-back → final acceptance, without a second integration approval. Further provide `conflicts:"resolve"` and a shared total budget to automatically create conflict-resolution subtasks and re-review, re-accept, and write back.
+- The `scope: "workflow"` of `teamwork_status` / `teamwork_control` summarizes and controls the entire derivation chain on the root task. Use the aggregate revision to pause, resume, or cancel all related tasks and integration dispatch in one operation; no need to operate on subtasks one by one. This is optional manual control, not an approval step during autonomous execution.
+- Conflicts can create a new work item via `teamwork_integrate`'s `resolve`: using the current project as the baseline, read-only viewing of the three-way inputs, re-implementation, independent review, and acceptance; when an accepted automatic write-back policy exists it integrates automatically after passing, otherwise an explicit integration command is still used.
 
-0.3 工作树还支持操作者配置的 1–5 轮有限修复和逐轮证据保留；默认只执行一轮。暂停提供 drain / interrupt；恢复使用新会话而非重新连接旧进程。集成默认关闭，必须配置 `integration.enabled: true` 并通过创建时策略或显式命令授权，示例见 `examples/runtime.integration.example.json`。尚未实现：完整 RunSpec、未知进程强证据对账、批量产物导出、slash commands、OpenCode/Pi 适配。完整开发方向见 [ROADMAP](ROADMAP.md)。后续适配顺序为 DSH → OpenCode → Pi。
+The 0.3 worktree also supports operator-configured 1–5 bounded repair rounds with per-round evidence retention; only one round is executed by default. Pause offers drain / interrupt; resume uses a new session rather than reconnecting to the old process. Integration is off by default and requires `integration.enabled: true` plus authorization via a creation-time policy or an explicit command; see the example in `examples/runtime.integration.example.json`. Not yet implemented: full RunSpec, strong-evidence reconciliation of unknown processes, bulk artifact export, slash commands, and OpenCode/Pi adapters. For the full development direction see [ROADMAP](ROADMAP.md). The subsequent adapter order is DSH → OpenCode → Pi.
 
-## 从源码使用
+## Using from source
 
-要求 Node.js >=22.13，当前测试基线为 Windows / Node.js 22.22.1。
+Requires Node.js >=22.13; the current test baseline is Windows / Node.js 22.22.1.
 
 ```sh
 git clone https://github.com/LING71671/teamwork-dsh.git
@@ -37,31 +37,31 @@ npm ci --registry=https://registry.npmjs.org
 npm test
 ```
 
-`v0.2.0-dev.1` 有 35 项测试，当前 0.3 工作树有 243 项。`npm test` 会构建源码并执行测试，包括真实 DSH SDK/Cordis 的离线模型适配器、逐项需求评审与变更范围、需求修订与旧证据失效、三方冲突解决后独立验证、显式集成到临时项目、保留用户改动、最终验收，以及进程退出恢复；不需要 API key，也不验证真实模型的任务效果。
+`v0.2.0-dev.1` has 35 tests; the current 0.3 worktree has 243. `npm test` builds the source and runs the tests, including an offline model adapter for the real DSH SDK/Cordis, per-requirement review and change scope, requirement revision and stale-evidence invalidation, independent verification after three-way conflict resolution, explicit integration into a temporary project, preservation of user changes, final acceptance, and process-exit recovery; no API key is required, and it does not validate real-model task effectiveness.
 
-编辑 `examples/runtime.example.json` 中的绝对路径和 DSH 模型路由，按实际位置修改 `examples/host.cordis.patch.yml`。示例路径仅为占位，不会替换你的凭据。
+Edit the absolute paths and DSH model routing in `examples/runtime.example.json`, and adjust `examples/host.cordis.patch.yml` to your actual locations. The example paths are placeholders only and will not replace your credentials.
 
 ```sh
 npm start -- --config examples/runtime.example.json --doctor
 npm start -- --config examples/runtime.example.json
 ```
 
-在另一终端设置 `TEAMWORK_CONNECTION_FILE` 指向 Runtime 生成的 `connection.json`，再使用示例 patch 启动 DSH host。完整配置、验收示例、协议和限制见 [开发指南](DEVELOPMENT.md)。真正发起任务时，DSH 会使用你配置的模型服务，可能产生费用。
+In another terminal, set `TEAMWORK_CONNECTION_FILE` to the `connection.json` generated by the Runtime, then start the DSH host using the example patch. For full configuration, acceptance examples, protocol, and limitations see the [development guide](DEVELOPMENT.md). When you actually launch a task, DSH will use the model service you configured, which may incur charges.
 
-## Release 安装包
+## Release packages
 
-[Releases](https://github.com/LING71671/teamwork-dsh/releases) 提供编译后的 npm 格式 `.tgz` 和 SHA-256 校验文件。可在独立安装目录执行 `npm install /absolute/path/teamwork-dsh-plugin-0.2.0-dev.1.tgz`，然后使用 `npx teamwork-runtime --config /absolute/path/runtime.json`。宿主必须能够解析已安装的 `@teamwork/dsh-plugin/host`，或使用其绝对 `file://` 模块 URL。
+[Releases](https://github.com/LING71671/teamwork-dsh/releases) provide a compiled npm-format `.tgz` and a SHA-256 checksum file. You can run `npm install /absolute/path/teamwork-dsh-plugin-0.2.0-dev.1.tgz` in a standalone installation directory, then use `npx teamwork-runtime --config /absolute/path/runtime.json`. The host must be able to resolve the installed `@teamwork/dsh-plugin/host`, or use its absolute `file://` module URL.
 
-当前未发布到 npm registry；`private: true` 用于防止误发布，不影响本地 tarball 安装。源码和编译包均采用 [MIT 许可证](LICENSE)。
+It is not currently published to the npm registry; `private: true` prevents accidental publication and does not affect local tarball installation. Both the source and the compiled package use the [MIT license](LICENSE).
 
-## 安全与边界
+## Security and boundaries
 
-工作副本不是操作系统沙箱。只对合作式任务使用；当前不保证逃逸子进程回收，也不防御同一 OS 用户下的恶意进程。评审工具权限有限，但实现者 shell 与验收程序仍需操作者信任。
+Working copies are not an operating-system sandbox. Use only for cooperative tasks; there is currently no guarantee of recovering escaped child processes, and no defense against malicious processes under the same OS user. Review tool permissions are limited, but the implementer shell and acceptance programs still require operator trust.
 
-不要提交 `connection.json`、环境凭据或运行状态。中断后的已派发进程无法证明退出时会进入 `blocked`，不会自动重派。请先阅读 [恢复与边界](DEVELOPMENT.md#恢复与边界)。
+Do not commit `connection.json`, environment credentials, or runtime state. A dispatched process that cannot prove exit after an interruption enters `blocked` and is not automatically redispatched. Please read [Recovery and boundaries](DEVELOPMENT.md#recovery-and-boundaries) first.
 
-## 开发与贡献
+## Development and contributing
 
-核心位于 `contracts.ts` / `kernel.ts` / `store.ts` / `runtime.ts`；DSH 集中在 `driver-dsh.ts` 和 `plugin-dsh/`。提交改动前运行 `npm test`，协议变化应同步更新客户端、测试和文档。
+The core is in `contracts.ts` / `kernel.ts` / `store.ts` / `runtime.ts`; DSH is concentrated in `driver-dsh.ts` and `plugin-dsh/`. Run `npm test` before committing changes; protocol changes should update the client, tests, and documentation in sync.
 
-欢迎通过 Issues 报告问题或提交 Pull Request。请附版本、复现步骤和脱敏日志，不要上传令牌、真实会话内容或私有项目文件。版本记录见 [CHANGELOG](CHANGELOG.md)。
+Issues and Pull Requests are welcome. Please include the version, reproduction steps, and redacted logs; do not upload tokens, real session contents, or private project files. For the version history see [CHANGELOG](CHANGELOG.md).
